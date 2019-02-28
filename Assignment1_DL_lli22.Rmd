@@ -1,0 +1,350 @@
+---
+title: "Assignment1_DL_lli22"
+output: 
+  html_notebook: 
+    theme: cerulean
+    highlight: textmate
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+##Original IMDB Example
+
+```{r, results='hide'}
+library(keras)
+imdb <- dataset_imdb(num_words = 10000)
+c(c(train_data, train_labels), c(test_data, test_labels)) %<-% imdb
+```
+
+```{r}
+str(train_data[[1]])
+```
+
+```{r}
+train_labels[[1]]
+```
+
+```{r}
+max(sapply(train_data, max))
+```
+
+```{r}
+# word_index is a dictionary mapping words to an integer index
+word_index <- dataset_imdb_word_index()
+# We reverse it, mapping integer indices to words
+reverse_word_index <- names(word_index)
+names(reverse_word_index) <- word_index
+# We decode the review; note that our indices were offset by 3
+# because 0, 1 and 2 are reserved indices for "padding", "start of sequence", and "unknown".
+decoded_review <- sapply(train_data[[1]], function(index) {
+  word <- if (index >= 3) reverse_word_index[[as.character(index - 3)]]
+  if (!is.null(word)) word else "?"
+})
+```
+
+```{r}
+cat(decoded_review)
+```
+
+```{r}
+vectorize_sequences <- function(sequences, dimension = 10000) {
+  # Create an all-zero matrix of shape (len(sequences), dimension)
+  results <- matrix(0, nrow = length(sequences), ncol = dimension)
+  for (i in 1:length(sequences))
+    # Sets specific indices of results[i] to 1s
+    results[i, sequences[[i]]] <- 1
+  results
+}
+# Our vectorized training data
+x_train <- vectorize_sequences(train_data)
+# Our vectorized test data
+x_test <- vectorize_sequences(test_data)
+```
+
+Here's what our samples look like now:
+
+```{r}
+str(x_train[1,])
+```
+
+We should also vectorize our labels, which is straightforward:
+
+```{r}
+# Our vectorized labels
+y_train <- as.numeric(train_labels)
+y_test <- as.numeric(test_labels)
+```
+
+
+```{r}
+library(keras)
+model <- keras_model_sequential() %>% 
+  layer_dense(units = 16, activation = "relu", input_shape = c(10000)) %>% 
+  layer_dense(units = 16, activation = "relu") %>% 
+  layer_dense(units = 1, activation = "sigmoid")
+```
+
+
+```{r}
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("accuracy")
+)
+```
+
+```{r}
+model %>% compile(
+  optimizer = optimizer_rmsprop(lr=0.001),
+  loss = "binary_crossentropy",
+  metrics = c("accuracy")
+) 
+```
+
+```{r}
+model %>% compile(
+  optimizer = optimizer_rmsprop(lr = 0.001),
+  loss = loss_binary_crossentropy,
+  metrics = metric_binary_accuracy
+) 
+```
+
+```{r}
+val_indices <- 1:10000
+x_val <- x_train[val_indices,]
+partial_x_train <- x_train[-val_indices,]
+y_val <- y_train[val_indices]
+partial_y_train <- y_train[-val_indices]
+```
+
+```{r, echo=TRUE, results='hide'}
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("accuracy")
+)
+history <- model %>% fit(
+  partial_x_train,
+  partial_y_train,
+  epochs = 20,
+  batch_size = 512,
+  validation_data = list(x_val, y_val)
+)
+```
+
+On CPU, this will take less than two seconds per epoch -- training is over in 20 seconds. At the end of every epoch, there is a slight pause as the model computes its loss and accuracy on the 10,000 samples of the validation data.
+
+Note that the call to `fit()` returns a `history` object. Let's take a look at it:
+
+```{r}
+str(history)
+```
+
+The `history` object includes various parameters used to fit the model (`history$params`) as well as data for each of the metrics being monitored (`history$metrics`).
+
+The `history` object has a `plot()` method that enables us to visualize the training and validation metrics by epoch:
+
+```{r}
+plot(history)
+```
+```{r, echo=TRUE, results='hide'}
+model <- keras_model_sequential() %>% 
+  layer_dense(units = 16, activation = "relu", input_shape = c(10000)) %>% 
+  layer_dense(units = 16, activation = "relu") %>% 
+  layer_dense(units = 1, activation = "sigmoid")
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("accuracy")
+)
+model %>% fit(x_train, y_train, epochs = 4, batch_size = 512)
+results <- model %>% evaluate(x_test, y_test)
+```
+
+```{r}
+results
+```
+
+```{r}
+model %>% predict(x_test[1:10,])
+```
+
+##Changing and comparition.
+
+### Try four layers, hidden units 64, mse loss function and tanh activation.
+
+```{r}
+library(keras)
+model <- keras_model_sequential() %>% 
+  layer_dense(units = 64, activation = "tanh", input_shape = c(10000)) %>% 
+  layer_dense(units = 64, activation = "tanh") %>% 
+  layer_dense(units = 64, activation = "tanh") %>% 
+  layer_dense(units = 1, activation = "sigmoid")
+```
+
+###Loss function
+
+```{r}
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "mse",
+  metrics = c("accuracy")
+)
+```
+
+### Validating our approach
+
+```{r}
+val_indices <- 1:10000
+x_val <- x_train[val_indices,]
+partial_x_train <- x_train[-val_indices,]
+y_val <- y_train[val_indices]
+partial_y_train <- y_train[-val_indices]
+```
+
+### Train our model for 20 epochs (20 iterations over all samples in the `x_train` and `y_train` tensors), in mini-batches of 512 samples. 
+
+```{r, echo=TRUE, results='hide'}
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "mse",
+  metrics = c("accuracy")
+)
+history <- model %>% fit(
+  partial_x_train,
+  partial_y_train,
+  epochs = 20,
+  batch_size = 512,
+  validation_data = list(x_val, y_val)
+)
+```
+
+###Object
+
+```{r}
+str(history)
+```
+
+###Plot
+
+```{r}
+plot(history)
+```
+
+### Comparition:
+
+By making changes mentioned before, we can get higher accuracy and smaller loss (0.9938, 0.0063). The changing of those could be done one by one to check the impacts of different changes. For example we can change only the number of layer, the hidden units, the loss function and the activation. The comparition results will be different and can get better results by try different combination of those changes.
+
+### Using a trained network to generate predictions on new data
+
+```{r}
+model %>% predict(x_test[1:10,])
+```
+
+##Possible Updating model: Generalization and Dropout.
+
+### Generalization
+
+```{r}
+library(keras)
+model <- keras_model_sequential() %>% 
+  layer_dense(units = 64, activation = "tanh", input_shape = c(10000),
+              kernel_regularizer = regularizer_l1(l = 0.001)) %>% 
+  layer_dense(units = 64, activation = "tanh",
+              kernel_regularizer = regularizer_l1(l = 0.001)) %>% 
+  layer_dense(units = 64, activation = "tanh",
+              kernel_regularizer = regularizer_l1(l = 0.001)) %>% 
+  layer_dense(units = 1, activation = "sigmoid")
+```
+```{r}
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "mse",
+  metrics = c("accuracy")
+)
+```
+```{r}
+val_indices <- 1:10000
+x_val <- x_train[val_indices,]
+partial_x_train <- x_train[-val_indices,]
+y_val <- y_train[val_indices]
+partial_y_train <- y_train[-val_indices]
+```
+```{r, echo=TRUE, results='hide'}
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "mse",
+  metrics = c("accuracy")
+)
+history <- model %>% fit(
+  partial_x_train,
+  partial_y_train,
+  epochs = 20,
+  batch_size = 512,
+  validation_data = list(x_val, y_val)
+)
+```
+```{r}
+str(history)
+```
+
+### Comparition of Generalization and basic model.
+
+The results shows the generalization doesn't work well on this case. the highest accuracy and smallest loss is (0.8961, 0.4588), so we can try other model to try to update.
+
+###Dropout
+
+```{r}
+library(keras)
+model <- keras_model_sequential() %>% 
+  layer_dense(units = 64, activation = "tanh", input_shape = c(10000)) %>% 
+  layer_dropout(0.6) %>%
+  layer_dense(units = 64, activation = "tanh") %>% 
+  layer_dropout(0.6) %>%
+  layer_dense(units = 64, activation = "tanh") %>% 
+  layer_dropout(0.6) %>%
+  layer_dense(units = 1, activation = "sigmoid")
+```
+```{r}
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "mse",
+  metrics = c("accuracy")
+)
+```
+```{r}
+val_indices <- 1:10000
+x_val <- x_train[val_indices,]
+partial_x_train <- x_train[-val_indices,]
+y_val <- y_train[val_indices]
+partial_y_train <- y_train[-val_indices]
+```
+```{r, echo=TRUE, results='hide'}
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "mse",
+  metrics = c("accuracy")
+)
+history <- model %>% fit(
+  partial_x_train,
+  partial_y_train,
+  epochs = 20,
+  batch_size = 512,
+  validation_data = list(x_val, y_val)
+)
+```
+```{r}
+str(history)
+```
+### Comparition
+
+The results shows the dropout doesn't work well on this case. the highest accuracy and smallest loss is (0.9818, 0.0161), but this method is better than the generalization. 
+
+### Possible reasons of non upgraded
+
+The reasons could be the basic model is better than the orignal model since it added layer and hidden units. we can check generalization and dropout method by cheking the orginial model to see if they get better result. The purpose of those work is to find a better and better model to forcast the possible data in the future.
+
+
+
